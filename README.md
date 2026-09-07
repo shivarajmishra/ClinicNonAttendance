@@ -1,6 +1,6 @@
 # Screening non-attendance risk dashboard
 
-[Click here to load the dashboard](https://shivarajmishra.github.io/ClinicNonAttendance/screening_risk_dashboard.html).
+[Click here to load the dashboard](https://shivarajmishra.github.io/ClinicNonAttendance/).
 
 A single-file browser tool that flags patients at higher risk of missing their
 breast screening appointment, so clinic teams can target reminders and outreach
