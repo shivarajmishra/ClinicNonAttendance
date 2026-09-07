@@ -11,7 +11,7 @@ Health District (SWSLHD).
 
 ## Quick start
 
-Open [screening_risk_dashboard.html](screening_risk_dashboard.html) in any modern
+Open [[screening_risk_dashboard.html](https://shivarajmishra.github.io/ClinicNonAttendance/screening_risk_dashboard.html)](screening_risk_dashboard.html) in any modern
 browser. There is no build step, server, or install — it is one self-contained
 HTML file.
 
