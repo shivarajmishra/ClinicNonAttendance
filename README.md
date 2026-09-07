@@ -11,9 +11,9 @@ Health District (SWSLHD).
 
 ## Quick start
 
-Open [[screening_risk_dashboard.html](https://shivarajmishra.github.io/ClinicNonAttendance/screening_risk_dashboard.html)](screening_risk_dashboard.html) in any modern
-browser. There is no build step, server, or install — it is one self-contained
-HTML file.
+Open [index.html](index.html) in any modern browser, or visit the
+[live version on GitHub Pages](https://shivarajmishra.github.io/ClinicNonAttendance/).
+There is no build step, server, or install — it is one self-contained HTML file.
 
 The dashboard loads with a set of example patients so you can see the model
 working immediately. Use **Clear all** to start from an empty list.
@@ -94,5 +94,5 @@ library (SheetJS) from a CDN on first use; CSV import works fully offline.
 ## Project layout
 
 ```
-screening_risk_dashboard.html   the entire application (HTML + CSS + JS)
+index.html   the entire application (HTML + CSS + JS)
 ```
