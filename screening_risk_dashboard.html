@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screening non-attendance risk dashboard</title>
+<style>
+  :root{
+    --page:#EFF3EF;
+    --panel:#FFFFFF;
+    --ink:#182620;
+    --ink-soft:#54655D;
+    --ink-faint:#8A9A91;
+    --line:#DCE4DE;
+    --line-strong:#C3CFC6;
+    --accent:#1F6F5C;
+    --accent-ink:#12463A;
+    --accent-wash:#E4EFEB;
+    --low:#4C8C63; --low-wash:#E7F1EA; --low-ink:#2C5A3D;
+    --mod:#B98A2E; --mod-wash:#F6EFDF; --mod-ink:#7A5A18;
+    --high:#C2703A; --high-wash:#F7E9DE; --high-ink:#7E4620;
+    --vhigh:#B14338; --vhigh-wash:#F5E1DE; --vhigh-ink:#7A2C24;
+    --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:var(--sans); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 24px 64px;}
+
+  /* header */
+  header{display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:22px; flex-wrap:wrap;}
+  .title-block h1{
+    font-family:var(--serif); font-weight:400; font-size:27px; margin:0 0 4px; color:var(--ink);
+    letter-spacing:0.1px;
+  }
+  .title-block p{margin:0; color:var(--ink-soft); font-size:13.5px; max-width:52ch;}
+  .header-actions{display:flex; gap:8px; flex-wrap:wrap;}
+
+  /* tabs */
+  .tabs{display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--line);}
+  .tab{
+    font-family:var(--sans); font-size:13.5px; padding:10px 4px; margin-right:20px; border:none; background:none;
+    color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; border-radius:0;
+  }
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--ink); font-weight:600; border-bottom-color:var(--accent);}
+
+  button{
+    font-family:var(--sans); font-size:13px; cursor:pointer; border-radius:7px;
+    padding:9px 14px; border:1px solid var(--line-strong); background:var(--panel); color:var(--ink);
+    transition:background .12s ease, border-color .12s ease;
+  }
+  button:hover{background:var(--accent-wash); border-color:var(--accent);}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  button.primary:hover{background:var(--accent-ink); border-color:var(--accent-ink);}
+  button.ghost{border-color:transparent; background:transparent; color:var(--ink-soft); padding:9px 10px;}
+  button.ghost:hover{background:var(--line); color:var(--ink);}
+  button.accent{background:var(--accent-wash); border-color:var(--accent); color:var(--accent-ink); font-weight:600;}
+  button.accent:hover{background:var(--accent); border-color:var(--accent); color:#fff;}
+  button.small{padding:5px 10px; font-size:12px;}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+  button:disabled:hover{background:var(--panel); border-color:var(--line-strong);}
+  button.primary:disabled:hover{background:var(--accent); border-color:var(--accent);}
+  button.accent:disabled:hover{background:var(--accent-wash); border-color:var(--accent);}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  /* summary */
+  .summary{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:20px;}
+  .stat{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+    text-align:left; width:100%; font:inherit; color:inherit; cursor:pointer;
+    transition:box-shadow .15s ease, border-color .15s ease, transform .1s ease;
+  }
+  .stat:hover{box-shadow:0 4px 14px rgba(24,38,32,.09); border-color:var(--line-strong);}
+  .stat:active{transform:translateY(1px);}
+  .stat.active{border-color:var(--ink); box-shadow:0 0 0 1px var(--ink) inset;}
+  .stat .n{font-family:var(--serif); font-size:26px; color:var(--ink);}
+  .stat .l{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .stat.tier-low{border-left:3px solid var(--low);}
+  .stat.tier-mod{border-left:3px solid var(--mod);}
+  .stat.tier-high{border-left:3px solid var(--high);}
+  .stat.tier-vhigh{border-left:3px solid var(--vhigh);}
+
+  /* layout */
+  .board{display:grid; grid-template-columns:1.55fr 1fr; gap:16px; align-items:start;}
+  @media (max-width:880px){ .board{grid-template-columns:1fr;} .summary{grid-template-columns:repeat(2,1fr);} }
+
+  /* clinic summary */
+  .cs-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;}
+  .cs-full{grid-column:1/-1;}
+  .cs-body{padding:16px;}
+  @media (max-width:880px){ .cs-grid{grid-template-columns:1fr;} }
+
+  .bar-chart{display:flex; flex-direction:column; gap:7px;}
+  .bar-row{display:grid; grid-template-columns:112px 1fr 30px; align-items:center; gap:9px; font-size:12px;}
+  .bar-label{color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bar-track{background:var(--page); border-radius:5px; height:12px; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:5px; transition:width .3s ease; min-width:2px;}
+  .bar-value{text-align:right; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .empty-note{color:var(--ink-faint); font-size:12.5px; margin:0;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(24,38,32,.05);}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap;}
+  .panel-head h2{font-family:var(--serif); font-weight:400; font-size:16px; margin:0;}
+  .appt-panel > summary{cursor:pointer; list-style:none;}
+  .appt-panel > summary::-webkit-details-marker{display:none;}
+  .appt-panel > summary h2::before{
+    content:'\25B8'; display:inline-block; width:0.9em; margin-right:6px; color:var(--ink-faint); transition:transform .15s ease;
+  }
+  .appt-panel[open] > summary h2::before{transform:rotate(90deg);}
+  .filters{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    font-size:12px; padding:5px 11px; border-radius:999px; border:1px solid var(--line-strong);
+    background:var(--panel); color:var(--ink-soft); cursor:pointer;
+  }
+  .chip.active{background:var(--ink); border-color:var(--ink); color:#fff;}
+
+  #table-wrap{max-height:640px; overflow:auto;}
+  table{width:100%; border-collapse:collapse;}
+  thead th{
+    position:sticky; top:0; background:var(--panel); z-index:1;
+    text-align:left; font-size:11px; text-transform:none; color:var(--ink-faint);
+    padding:8px 10px; border-bottom:1px solid var(--line); font-weight:400; cursor:pointer; white-space:nowrap;
+  }
+  thead th:hover{color:var(--ink-soft);}
+  thead th[data-sort]:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+  .sort-arrow{color:var(--ink-soft); font-size:10px;}
+  tbody td{padding:9px 10px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:var(--page);}
+  tbody tr.selected{background:var(--accent-wash);}
+  tbody tr:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+  .flag{
+    display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:6px; font-size:12px;
+  }
+  .flag .dot{width:7px; height:7px; border-radius:50%;}
+  .flag.low{background:var(--low-wash); color:var(--low-ink);}
+  .flag.low .dot{background:var(--low);}
+  .flag.mod{background:var(--mod-wash); color:var(--mod-ink);}
+  .flag.mod .dot{background:var(--mod);}
+  .flag.high{background:var(--high-wash); color:var(--high-ink);}
+  .flag.high .dot{background:var(--high);}
+  .flag.vhigh{background:var(--vhigh-wash); color:var(--vhigh-ink);}
+  .flag.vhigh .dot{background:var(--vhigh);}
+
+  .empty{padding:36px 20px; text-align:center; color:var(--ink-soft);}
+  .empty p{margin:4px 0;}
+
+  /* detail panel */
+  .detail-body{padding:16px; max-height:640px; overflow:auto;}
+  .detail-empty{padding:40px 20px; text-align:center; color:var(--ink-faint);}
+  .d-name{font-family:var(--serif); font-size:19px; margin:0 0 2px;}
+  .d-sub{color:var(--ink-soft); font-size:12.5px; margin:0 0 14px;}
+  .d-index{
+    display:flex; align-items:baseline; gap:8px; margin-bottom:4px;
+  }
+  .d-index .num{font-family:var(--serif); font-size:30px;}
+  .d-index .label{font-size:12px; color:var(--ink-soft);}
+  .d-tierline{margin:0 0 16px;}
+
+  .gauge-wrap{text-align:center; margin:0 0 14px;}
+  .gauge{width:190px; max-width:100%; height:auto; overflow:visible;}
+  .gauge-label{fill:#fff; font-size:7.5px; font-weight:700; letter-spacing:.3px; font-family:var(--sans);}
+  .gauge-needle{fill:var(--ink); stroke:#fff; stroke-width:1; stroke-linejoin:round; transition:transform .45s ease;}
+  .gauge-pivot{fill:var(--ink); stroke:#fff; stroke-width:1.5;}
+
+  .factor-list{list-style:none; margin:0 0 16px; padding:0; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .factor-list li{
+    display:flex; justify-content:space-between; gap:10px; padding:8px 11px; font-size:12.5px;
+    border-bottom:1px solid var(--line);
+  }
+  .factor-list li:last-child{border-bottom:none;}
+  .factor-list li .fk{color:var(--ink-soft);}
+  .factor-list li .fv{color:var(--ink); text-align:right;}
+
+  .section-label{font-size:11px; color:var(--ink-faint); margin:0 0 8px; letter-spacing:.2px;}
+  .actions-box{background:var(--page); border-radius:8px; padding:12px 13px; margin-bottom:14px;}
+  .actions-box ul{margin:0; padding-left:18px;}
+  .actions-box li{margin-bottom:4px; font-size:13px;}
+  .actions-box li:last-child{margin-bottom:0;}
+
+  .actions-highlight{
+    border:2px solid var(--vhigh); border-radius:10px; background:var(--vhigh-wash);
+    padding:12px 13px 13px; margin-bottom:16px;
+  }
+  .actions-highlight .section-label{color:var(--vhigh-ink); font-weight:600;}
+  .actions-highlight .actions-box{background:transparent; padding:0; margin-bottom:0;}
+
+  .row-actions{text-align:right; white-space:nowrap;}
+  .row-actions button{border-color:transparent; padding:5px 9px;}
+  .row-actions button.edit-btn{color:var(--accent-ink);}
+  .row-actions button.edit-btn:hover{background:var(--accent-wash);}
+  .row-actions button.remove-btn{color:var(--vhigh-ink);}
+  .row-actions button.remove-btn:hover{background:var(--vhigh-wash);}
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,30,25,.32); display:flex; align-items:flex-start;
+    justify-content:center; padding:40px 16px; z-index:20; overflow:auto;
+  }
+  .modal{background:var(--panel); border-radius:12px; width:100%; max-width:640px; border:1px solid var(--line);}
+  .modal-head{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--line);}
+  .modal-head h3{font-family:var(--serif); font-weight:400; font-size:17px; margin:0;}
+  .modal-body{padding:18px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px 16px;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field.full{grid-column:1/-1;}
+  .field label{font-size:12px; color:var(--ink-soft);}
+  .field select, .field input{
+    font-family:var(--sans); font-size:13.5px; padding:8px 9px; border-radius:7px; border:1px solid var(--line-strong);
+    background:var(--panel); color:var(--ink);
+  }
+  .field select:focus, .field input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-wash);}
+  .modal-foot{display:flex; justify-content:flex-end; gap:8px; padding:14px 20px; border-top:1px solid var(--line);}
+  .err{color:var(--vhigh-ink); font-size:12px; min-height:16px;}
+  @media (max-width:560px){ .modal-body{grid-template-columns:1fr;} }
+
+  .toast{
+    position:fixed; bottom:20px; right:20px; max-width:340px; background:var(--ink); color:#fff;
+    padding:12px 16px; border-radius:8px; font-size:13px; line-height:1.4; box-shadow:0 8px 24px rgba(15,25,20,.22);
+    opacity:0; transform:translateY(8px); pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:40;
+  }
+  .toast.show{opacity:1; transform:translateY(0);}
+  .toast.err{background:var(--vhigh-ink);}
+
+  .footnote{margin-top:22px; font-size:11.5px; color:var(--ink-faint); line-height:1.6; max-width:80ch;}
+  .footnote a{color:var(--accent-ink);}
+
+  /* readme */
+  .readme{background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:20px; overflow:hidden;}
+  .readme summary{cursor:pointer; padding:14px 16px; font-family:var(--serif); font-size:15px; list-style:none; user-select:none;}
+  .readme summary::-webkit-details-marker{display:none;}
+  .readme summary::before{content:'\25B8'; display:inline-block; width:1em; margin-right:6px; color:var(--ink-faint); transition:transform .15s ease;}
+  .readme[open] summary::before{transform:rotate(90deg);}
+  .readme-body{padding:0 16px 16px; color:var(--ink-soft); font-size:13px; line-height:1.62; border-top:1px solid var(--line);}
+  .readme-body p, .readme-body ol{margin:14px 0 0;}
+  .readme-body ol{padding-left:19px;}
+  .readme-body li{margin-bottom:6px;}
+  .readme-body li strong{color:var(--ink);}
+  .readme-body a{color:var(--accent-ink);}
+
+  /* import modal */
+  .import-modal{max-width:800px;}
+  .import-body{display:block; max-height:60vh; overflow:auto;}
+  .import-summary{font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;}
+  .import-map{list-style:none; margin:0 0 14px; padding:0; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .import-map li{display:flex; justify-content:space-between; gap:10px; padding:7px 11px; font-size:12.5px; border-bottom:1px solid var(--line);}
+  .import-map li:last-child{border-bottom:none;}
+  .import-map .fk{color:var(--ink-soft); text-transform:capitalize;}
+  .import-map .fv{color:var(--ink); text-align:right;}
+  .import-map .fv.missing{color:var(--vhigh-ink);}
+  .import-table-wrap{overflow:auto; border:1px solid var(--line); border-radius:8px;}
+  .import-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .import-table th{text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); color:var(--ink-faint); font-weight:400; white-space:nowrap;}
+  .import-table td{padding:7px 9px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  .import-table tr:last-child td{border-bottom:none;}
+  .import-status{font-size:11.5px; padding:2px 7px; border-radius:5px;}
+  .import-status.ok{background:var(--low-wash); color:var(--low-ink);}
+  .import-status.bad{background:var(--vhigh-wash); color:var(--vhigh-ink);}
+
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+
+  /* printable patient summary */
+  #print-sheet{display:none;}
+  .ps-head{text-align:center; margin-bottom:22px; padding-bottom:14px; border-bottom:2px solid var(--ink);}
+  .ps-title{font-family:var(--serif); font-size:20px;}
+  .ps-meta{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+  .ps-footer{margin-top:26px; padding-top:12px; border-top:1px solid var(--line); font-size:10.5px; color:var(--ink-faint); line-height:1.5;}
+
+  @media print{
+    body > *:not(#print-sheet){display:none !important;}
+    #print-sheet{display:block !important; max-width:680px; margin:0 auto;}
+    @page{margin:16mm;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">Breast screening attendance risk dashboard: a patient list with computed non-attendance risk scores, filterable by risk tier, with per-patient factor breakdowns and recommended interventions.</h2>
+
+  <header>
+    <div class="title-block">
+      <h1>Screening non-attendance risk dashboard</h1>
+      <p>Flags patients at high risk of missing their breast screening appointment, using relative risk ratios published in <a href="https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(17)30217-7/fulltext" target="_blank" rel="noopener">Ellis et al., <em>Lancet Public Health</em> 2017</a>.</p>
+    </div>
+    <div class="header-actions">
+      <button class="ghost small" id="btn-demo">Load example patients</button>
+      <button class="accent small" id="btn-import">Import from Excel/CSV</button>
+      <input type="file" id="file-import" accept=".csv,.xlsx,.xls" style="display:none">
+      <button class="ghost small" id="btn-clear">Clear all</button>
+      <button class="primary" id="btn-add">Add patient</button>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab active" id="tab-patients" role="tab" aria-selected="true">Patient list</button>
+    <button type="button" class="tab" id="tab-summary" role="tab" aria-selected="false">Clinic summary</button>
+  </div>
+
+  <details class="readme">
+    <summary>How to use this dashboard</summary>
+    <div class="readme-body">
+      <ol>
+        <li><strong>Add patients.</strong> Use "Add patient" for one at a time, or "Import from Excel/CSV" to bring in a whole clinic list at once.</li>
+        <li><strong>Review the list.</strong> "Upcoming appointments" is sorted by risk score by default &mdash; click a column heading to re-sort, or use the tier chips (Low / Moderate / High / Very high) to filter.</li>
+        <li><strong>Open a patient.</strong> Click a row to see their risk gauge, factor breakdown and suggested actions in the "Patient detail" panel.</li>
+        <li><strong>Act on high-risk patients.</strong> Each tier lists suggested interventions drawn from the study's findings &mdash; treat these as a starting point, not a fixed protocol.</li>
+        <li><strong>Edit or remove</strong> a patient at any time from the row actions on the right of the table.</li>
+        <li><strong>Check the "Clinic summary" tab</strong> for an aggregate view of the currently loaded list &mdash; risk tier mix, deprivation and rurality breakdowns.</li>
+      </ol>
+      <p class="section-label" style="margin-top:16px;">Importing from Excel or CSV</p>
+      <p>Upload a spreadsheet with one row per patient (.xlsx, .xls or .csv). Column headers don't need to match exactly &mdash; the importer looks for common names such as "Age", "SIMD", "Delay (days)", "LGA", "Practice deprivation", "Distance (km)" and "Prior DNAs". LGA values can be typed as the local government area name (e.g. "Liverpool"). You'll see a preview of the detected columns and which rows could and couldn't be parsed before anything is added to the list. <a href="data:text/csv;charset=utf-8,Patient%20Name%2CAge%2CSIMD%20Decile%20(1-10)%2CDelay%20(days)%2CLGA%2CPractice%20Mean%20Deprivation%2CDistance%20(km)%2CPrior%20DNAs%0AJane%20Doe%2C68%2C3%2C4%2CLiverpool%2C6.2%2C3.5%2C1%0A" download="patient_import_template.csv">Download a CSV template</a>.</p>
+      <p class="section-label">How the risk score works</p>
+      <p>Each patient's risk index multiplies the relative risk ratios (RRRs) from Ellis et al. for their age band, deprivation decile, appointment delay, local government area, mean practice deprivation and distance to practice. See the footnote below the dashboard for the full formula and important caveats about calibration, including how LGA weighting was adapted for SWSLHD.</p>
+      <p class="section-label">Data storage</p>
+      <p>Patient records stay in this browser only &mdash; nothing is uploaded to a server. "Clear all" removes them permanently, so use it deliberately.</p>
+    </div>
+  </details>
+
+  <div id="view-patients">
+    <div class="summary" id="summary"></div>
+
+    <div class="board">
+      <details class="panel appt-panel" open>
+        <summary class="panel-head">
+          <h2>Upcoming appointments</h2>
+          <div class="filters" id="filters"></div>
+        </summary>
+        <div id="table-wrap"></div>
+      </details>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Patient detail</h2>
+          <button class="accent small" id="btn-print" disabled>Download PDF</button>
+        </div>
+        <div class="detail-body" id="detail"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="view-summary" style="display:none;">
+    <div class="summary" id="cs-stats"></div>
+    <div class="cs-grid">
+      <section class="panel cs-full">
+        <div class="panel-head"><h2>Risk tier mix</h2></div>
+        <div class="cs-body" id="cs-tier-chart"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Deprivation decile (SIMD)</h2></div>
+        <div class="cs-body" id="cs-simd-chart"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Local government area (SWSLHD)</h2></div>
+        <div class="cs-body" id="cs-rurality-chart"></div>
+      </section>
+    </div>
+    <p class="footnote">
+      Reflects only the patients currently loaded in this browser, not a full practice register. Deprivation decile 1 = most deprived, 10 = least deprived. LGA risk weighting is an unvalidated approximation &mdash; see the note below the main dashboard.
+    </p>
+  </div>
+
+  <p class="footnote">
+    Risk index = exp(sum of ln(RRR) across age, deprivation decile, appointment delay, local government area, mean practice deprivation and distance to practice), each relative to the study's reference category. Weights are taken directly from the study's adjusted negative binomial model and are not yet calibrated to local screening attendance data — treat tiers as a provisional starting point and recalibrate once local outcomes accrue. The local government area factor originally used Scotland's 8-level urban/rural classification; it has been remapped to SWSLHD's 6 LGAs (Canterbury-Bankstown, Liverpool, Fairfield, Campbelltown, Camden, Wollondilly), ordered most to least urban and reusing 6 of the study's published RRRs in that order. This is an unvalidated approximation — under Australia's own remoteness classification, almost all of SWSLHD sits within "Major City," so treat this factor's contribution to the score with particular caution until it is locally recalibrated.
+  </p>
+</div>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<div class="overlay" id="overlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Add patient</h3>
+      <button class="ghost small" id="btn-close-modal" aria-label="Close">Close</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <span class="err" id="form-err"></span>
+      <button class="ghost" id="btn-cancel">Cancel</button>
+      <button class="primary" id="btn-save">Add to list</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="import-overlay" style="display:none;">
+  <div class="modal import-modal">
+    <div class="modal-head">
+      <h3>Import patients</h3>
+      <button class="ghost small" id="btn-close-import" aria-label="Close">Close</button>
+    </div>
+    <div class="modal-body import-body" id="import-body"></div>
+    <div class="modal-foot">
+      <span class="err" id="import-err"></span>
+      <button class="ghost" id="btn-import-cancel">Cancel</button>
+      <button class="primary" id="btn-import-confirm" disabled>Import</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-sheet"></div>
+
+<script>
+(function(){
+
+// ---------- published weights (Ellis et al. 2017, Table 2) ----------
+var AGE = [
+  {v:'0-15', l:'0\u201315 yrs', rrr:1.00},
+  {v:'16-30', l:'16\u201330 yrs', rrr:1.21},
+  {v:'31-45', l:'31\u201345 yrs', rrr:1.02},
+  {v:'46-60', l:'46\u201360 yrs', rrr:0.89},
+  {v:'61-75', l:'61\u201375 yrs', rrr:0.80},
+  {v:'76-90', l:'76\u201390 yrs', rrr:1.08},
+  {v:'90+', l:'90+ yrs', rrr:2.20}
+];
+var SIMD = [
+  {v:'1', l:'1 \u2013 most deprived', rrr:2.27},
+  {v:'2', l:'2', rrr:2.07},
+  {v:'3', l:'3', rrr:1.86},
+  {v:'4', l:'4', rrr:1.84},
+  {v:'5', l:'5', rrr:2.02},
+  {v:'6', l:'6', rrr:1.47},
+  {v:'7', l:'7', rrr:1.43},
+  {v:'8', l:'8', rrr:1.43},
+  {v:'9', l:'9', rrr:1.34},
+  {v:'10', l:'10 \u2013 least deprived', rrr:1.00}
+];
+var DIST = [
+  {v:'0-2', l:'0\u20132 km', rrr:1.00},
+  {v:'>2', l:'more than 2 km', rrr:0.97}
+];
+var DELAY = [
+  {v:'<1', l:'on the day', rrr:1.00},
+  {v:'1-2', l:'1\u20132 days', rrr:2.46},
+  {v:'2-3', l:'2\u20133 days', rrr:2.54},
+  {v:'3-4', l:'3\u20134 days', rrr:2.51},
+  {v:'4-5', l:'4\u20135 days', rrr:2.43},
+  {v:'5-6', l:'5\u20136 days', rrr:2.41},
+  {v:'6-7', l:'6\u20137 days', rrr:2.38},
+  {v:'7-14', l:'7\u201314 days', rrr:2.15},
+  {v:'>14', l:'more than 14 days', rrr:2.01}
+];
+var DELAY_ORDER = {};
+DELAY.forEach(function(o, i){ DELAY_ORDER[o.v] = i; });
+// SWSLHD's 6 LGAs, ordered most \u2192 least urban and mapped onto 6 of Ellis et al.'s
+// 8 published urban/rural RRRs in that order. This is an unvalidated approximation:
+// the original scale is Scotland's 8-level urban/rural classification, and almost all
+// of SWSLHD sits within Australia's own "Major City" remoteness band \u2014 see the
+// footnote below the dashboard.
+var RUR = [
+  {v:'canterbury-bankstown', l:'Canterbury-Bankstown', rrr:1.00},
+  {v:'liverpool', l:'Liverpool', rrr:0.88},
+  {v:'fairfield', l:'Fairfield', rrr:0.78},
+  {v:'campbelltown', l:'Campbelltown', rrr:0.48},
+  {v:'camden', l:'Camden', rrr:0.38},
+  {v:'wollondilly', l:'Wollondilly', rrr:0.55}
+];
+var PSIMD = [
+  {v:'2-3', l:'2\u20133 (reference)', rrr:1.00},
+  {v:'3-4', l:'3\u20134', rrr:0.84},
+  {v:'4-5', l:'4\u20135', rrr:1.00},
+  {v:'5-6', l:'5\u20136', rrr:1.32},
+  {v:'6-7', l:'6\u20137', rrr:1.14},
+  {v:'7-8', l:'7\u20138', rrr:1.65},
+  {v:'8-9', l:'8\u20139', rrr:1.39}
+];
+
+var FACTOR_DEFS = [
+  {key:'age', label:'Age', options:AGE},
+  {key:'simd', label:'Deprivation decile (SIMD, 1=most deprived)', options:SIMD},
+  {key:'delay', label:'Appointment delay (booking to appointment)', options:DELAY},
+  {key:'rurality', label:'Local government area (SWSLHD)', options:RUR},
+  {key:'psimd', label:'Mean practice patient deprivation', options:PSIMD},
+  {key:'distance', label:'Distance to practice', options:DIST}
+];
+
+function findOpt(defs, key, val){
+  var def = defs.filter(function(d){return d.key===key;})[0];
+  return def.options.filter(function(o){return o.v===val;})[0];
+}
+
+function riskIndex(p){
+  var logSum = 0;
+  FACTOR_DEFS.forEach(function(f){
+    var o = findOpt(FACTOR_DEFS, f.key, p[f.key]);
+    if(o) logSum += Math.log(o.rrr);
+  });
+  return Math.exp(logSum);
+}
+
+function tierOf(idx){
+  if(idx <= 1.5) return 'low';
+  if(idx <= 3.0) return 'mod';
+  if(idx <= 6.0) return 'high';
+  return 'vhigh';
+}
+var TIER_LABEL = {low:'Low', mod:'Moderate', high:'High', vhigh:'Very high'};
+var TIER_ORDER = {low:0, mod:1, high:2, vhigh:3};
+
+// ---------- risk gauge (semicircle dial) ----------
+var GAUGE_TIERS = ['low','mod','high','vhigh'];
+var GAUGE_RANGES = {low:[0,1.5], mod:[1.5,3.0], high:[3.0,6.0], vhigh:[6.0,12]};
+
+function gaugeXY(cx, cy, r, deg){
+  var rad = deg * Math.PI / 180;
+  return {x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad)};
+}
+function gaugeWedgePath(cx, cy, r, a1, a2){
+  var p1 = gaugeXY(cx, cy, r, a1), p2 = gaugeXY(cx, cy, r, a2);
+  return 'M'+cx+','+cy+' L'+p1.x.toFixed(2)+','+p1.y.toFixed(2)+
+    ' A'+r+' '+r+' 0 0 1 '+p2.x.toFixed(2)+','+p2.y.toFixed(2)+' Z';
+}
+
+function buildGauge(idx, tier){
+  var cx = 100, cy = 96, r = 86;
+
+  var wedges = GAUGE_TIERS.map(function(t, i){
+    var a1 = 180 - i*45, a2 = 180 - (i+1)*45, mid = (a1+a2)/2;
+    var lp = gaugeXY(cx, cy, r*0.63, mid);
+    return '<path d="'+gaugeWedgePath(cx, cy, r, a1, a2)+'" style="fill:var(--'+t+')"></path>'+
+      '<text x="'+lp.x.toFixed(1)+'" y="'+lp.y.toFixed(1)+'" text-anchor="middle" '+
+      'transform="rotate('+(90-mid).toFixed(1)+' '+lp.x.toFixed(1)+' '+lp.y.toFixed(1)+')" class="gauge-label">'+
+      TIER_LABEL[t].toUpperCase()+'</text>';
+  }).join('');
+
+  var i = GAUGE_TIERS.indexOf(tier);
+  var a1 = 180 - i*45, a2 = 180 - (i+1)*45;
+  var range = GAUGE_RANGES[tier];
+  var frac = range[1] > range[0] ? Math.max(0, Math.min(1, (idx - range[0]) / (range[1] - range[0]))) : 0;
+  var rot = 90 - (a1 + (a2 - a1) * frac);
+
+  var needle = '<polygon class="gauge-needle" points="'+
+    cx+','+(cy-r*0.88)+' '+(cx-8)+','+(cy-r*0.52)+' '+(cx-3)+','+(cy-r*0.52)+' '+
+    (cx-3)+','+(cy-10)+' '+(cx+3)+','+(cy-10)+' '+(cx+3)+','+(cy-r*0.52)+' '+
+    (cx+8)+','+(cy-r*0.52)+
+    '" transform="rotate('+rot.toFixed(1)+' '+cx+' '+cy+')"></polygon>';
+
+  return '<div class="gauge-wrap"><svg class="gauge" viewBox="0 0 200 108" aria-hidden="true">'+
+    wedges + needle +
+    '<circle cx="'+cx+'" cy="'+cy+'" r="6" class="gauge-pivot"></circle>'+
+    '</svg></div>';
+}
+
+var ACTIONS = {
+  low: ['Standard invitation and reminder letter.'],
+  mod: ['Send an SMS and email reminder ahead of the appointment.', 'Make rescheduling easy to find in the reminder.'],
+  high: ['Follow up the reminder with a phone call.', 'Offer an earlier or same-day slot if one opens up.', 'Include transport information with the invitation.'],
+  vhigh: ['Proactively call before relying on a written reminder.', 'Offer flexible rebooking rather than a single fixed slot.', 'Consider outreach or navigator support to help her attend.']
+};
+
+// ---------- state ----------
+var patients = [];
+var selectedId = null;
+var activeFilter = 'all';
+var sortKey = 'risk';
+var sortDir = -1;
+var STORAGE_KEY = 'screening-patients-v1';
+var useMemoryOnly = false;
+
+function uid(){ return 'p_' + Math.random().toString(36).slice(2,9); }
+
+function demoPatients(){
+  return [
+    {id:uid(), label:'Margaret Wilson', age:'61-75', simd:'1', delay:'2-3', rurality:'canterbury-bankstown', psimd:'7-8', distance:'>2', dnas:2},
+    {id:uid(), label:'Fiona Campbell', age:'46-60', simd:'6', delay:'1-2', rurality:'liverpool', psimd:'4-5', distance:'0-2', dnas:0},
+    {id:uid(), label:'Isobel Mackay', age:'90+', simd:'3', delay:'3-4', rurality:'canterbury-bankstown', psimd:'6-7', distance:'0-2', dnas:1},
+    {id:uid(), label:'Priya Sharma', age:'31-45', simd:'9', delay:'<1', rurality:'wollondilly', psimd:'2-3', distance:'0-2', dnas:0},
+    {id:uid(), label:'Ellie Thomson', age:'16-30', simd:'2', delay:'2-3', rurality:'fairfield', psimd:'5-6', distance:'>2', dnas:3},
+    {id:uid(), label:'James Patterson', age:'76-90', simd:'4', delay:'7-14', rurality:'camden', psimd:'8-9', distance:'>2', dnas:4},
+    {id:uid(), label:'Aisha Khan', age:'31-45', simd:'8', delay:'<1', rurality:'canterbury-bankstown', psimd:'3-4', distance:'0-2', dnas:0},
+    {id:uid(), label:'Robert Fraser', age:'61-75', simd:'2', delay:'4-5', rurality:'liverpool', psimd:'6-7', distance:'>2', dnas:2},
+    {id:uid(), label:'Sofia Rossi', age:'46-60', simd:'7', delay:'1-2', rurality:'fairfield', psimd:'4-5', distance:'0-2', dnas:0},
+    {id:uid(), label:'David Nguyen', age:'16-30', simd:'5', delay:'<1', rurality:'canterbury-bankstown', psimd:'5-6', distance:'0-2', dnas:1},
+    {id:uid(), label:"Grace O'Brien", age:'90+', simd:'1', delay:'6-7', rurality:'campbelltown', psimd:'7-8', distance:'>2', dnas:3},
+    {id:uid(), label:'Mohammed Al-Amin', age:'31-45', simd:'10', delay:'<1', rurality:'wollondilly', psimd:'2-3', distance:'>2', dnas:0},
+    {id:uid(), label:'Linda Stewart', age:'61-75', simd:'3', delay:'2-3', rurality:'canterbury-bankstown', psimd:'5-6', distance:'0-2', dnas:1},
+    {id:uid(), label:'Chen Wei', age:'46-60', simd:'6', delay:'3-4', rurality:'liverpool', psimd:'4-5', distance:'0-2', dnas:0},
+    {id:uid(), label:'Emily Clarke', age:'76-90', simd:'2', delay:'5-6', rurality:'canterbury-bankstown', psimd:'6-7', distance:'>2', dnas:2},
+    {id:uid(), label:'Hamish Ross', age:'31-45', simd:'9', delay:'<1', rurality:'wollondilly', psimd:'3-4', distance:'>2', dnas:0},
+    {id:uid(), label:'Olga Petrova', age:'61-75', simd:'4', delay:'7-14', rurality:'fairfield', psimd:'8-9', distance:'0-2', dnas:3},
+    {id:uid(), label:'Samuel Okafor', age:'16-30', simd:'1', delay:'2-3', rurality:'canterbury-bankstown', psimd:'7-8', distance:'>2', dnas:1},
+    {id:uid(), label:'Charlotte Hughes', age:'46-60', simd:'8', delay:'<1', rurality:'wollondilly', psimd:'2-3', distance:'0-2', dnas:0},
+    {id:uid(), label:'Tariq Hussain', age:'90+', simd:'1', delay:'>14', rurality:'canterbury-bankstown', psimd:'8-9', distance:'>2', dnas:5}
+  ];
+}
+
+function defaultPatients(){
+  return demoPatients().slice(0, 10);
+}
+
+// ---------- persistence ----------
+function loadPatients(cb){
+  if(!window.storage){ useMemoryOnly = true; patients = defaultPatients(); cb(); return; }
+  window.storage.get(STORAGE_KEY, false).then(function(res){
+    try{ patients = res && res.value ? JSON.parse(res.value) : []; }
+    catch(e){ patients = []; }
+    if(!patients.length) patients = defaultPatients();
+    cb();
+  }).catch(function(){ patients = defaultPatients(); cb(); });
+}
+function savePatients(){
+  if(!window.storage || useMemoryOnly) return;
+  window.storage.set(STORAGE_KEY, JSON.stringify(patients), false).catch(function(){});
+}
+
+// ---------- rendering ----------
+var elSummary = document.getElementById('summary');
+var elFilters = document.getElementById('filters');
+var elTableWrap = document.getElementById('table-wrap');
+var elDetail = document.getElementById('detail');
+var elToast = document.getElementById('toast');
+var toastTimer = null;
+var btnPrint = document.getElementById('btn-print');
+var elPrintSheet = document.getElementById('print-sheet');
+
+// ---------- tabs ----------
+var elViewPatients = document.getElementById('view-patients');
+var elViewSummary = document.getElementById('view-summary');
+var tabPatients = document.getElementById('tab-patients');
+var tabSummary = document.getElementById('tab-summary');
+
+function setActiveTab(tab){
+  var isPatients = tab === 'patients';
+  elViewPatients.style.display = isPatients ? '' : 'none';
+  elViewSummary.style.display = isPatients ? 'none' : '';
+  tabPatients.classList.toggle('active', isPatients);
+  tabSummary.classList.toggle('active', !isPatients);
+  tabPatients.setAttribute('aria-selected', String(isPatients));
+  tabSummary.setAttribute('aria-selected', String(!isPatients));
+}
+tabPatients.addEventListener('click', function(){ setActiveTab('patients'); });
+tabSummary.addEventListener('click', function(){ setActiveTab('summary'); });
+
+function showToast(msg, isErr){
+  elToast.textContent = msg;
+  elToast.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ elToast.className = 'toast'; }, 4000);
+}
+
+function computed(){
+  return patients.map(function(p){
+    var idx = riskIndex(p);
+    return {p:p, idx:idx, tier:tierOf(idx)};
+  });
+}
+
+function renderSummary(rows){
+  var counts = {low:0, mod:0, high:0, vhigh:0};
+  rows.forEach(function(r){ counts[r.tier]++; });
+  var cards = [
+    {n:patients.length, l:'Total patients', cls:'', filter:'all'},
+    {n:counts.low, l:'Low risk', cls:'tier-low', filter:'low'},
+    {n:counts.mod, l:'Moderate risk', cls:'tier-mod', filter:'mod'},
+    {n:counts.high, l:'High risk', cls:'tier-high', filter:'high'},
+    {n:counts.vhigh, l:'Very high risk', cls:'tier-vhigh', filter:'vhigh'}
+  ];
+  elSummary.innerHTML = cards.map(function(c){
+    return '<button type="button" class="stat '+c.cls+(activeFilter===c.filter?' active':'')+'" data-filter="'+c.filter+'" '+
+      'aria-pressed="'+(activeFilter===c.filter)+'"><div class="n">'+c.n+'</div><div class="l">'+c.l+'</div></button>';
+  }).join('');
+  Array.prototype.forEach.call(elSummary.querySelectorAll('.stat'), function(btn){
+    btn.addEventListener('click', function(){
+      activeFilter = btn.getAttribute('data-filter');
+      var apptPanel = document.querySelector('.appt-panel');
+      if(apptPanel && !apptPanel.open) apptPanel.open = true;
+      render();
+    });
+  });
+}
+
+function renderFilters(){
+  var opts = [['all','All'],['low','Low'],['mod','Moderate'],['high','High'],['vhigh','Very high']];
+  elFilters.innerHTML = opts.map(function(o){
+    return '<button class="chip'+(activeFilter===o[0]?' active':'')+'" data-filter="'+o[0]+'">'+o[1]+'</button>';
+  }).join('');
+  Array.prototype.forEach.call(elFilters.querySelectorAll('.chip'), function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      activeFilter = btn.getAttribute('data-filter');
+      render();
+    });
+  });
+}
+
+function ageLabel(v){ var o=findOpt(FACTOR_DEFS,'age',v); return o?o.l:v; }
+function rurLabel(v){ var o=findOpt(FACTOR_DEFS,'rurality',v); return o?o.l:v; }
+
+function renderTable(rows){
+  if(patients.length === 0){
+    elTableWrap.innerHTML = '<div class="empty"><p>No patients on the list yet.</p><p>Add a patient or load example patients to see the model in action.</p></div>';
+    return;
+  }
+  var filtered = activeFilter==='all' ? rows : rows.filter(function(r){return r.tier===activeFilter;});
+  filtered.sort(function(a,b){
+    if(sortKey==='risk') return (a.idx - b.idx) * sortDir;
+    if(sortKey==='label') return ((a.p.label||'').toLowerCase() > (b.p.label||'').toLowerCase() ? 1 : -1) * sortDir;
+    if(sortKey==='age') return (a.p.age > b.p.age ? 1 : -1) * sortDir;
+    if(sortKey==='simd') return (parseInt(a.p.simd) - parseInt(b.p.simd)) * sortDir;
+    if(sortKey==='delay') return (DELAY_ORDER[a.p.delay] - DELAY_ORDER[b.p.delay]) * sortDir;
+    if(sortKey==='dnas') return ((a.p.dnas||0) - (b.p.dnas||0)) * sortDir;
+    return 0;
+  });
+
+  if(filtered.length === 0){
+    elTableWrap.innerHTML = '<div class="empty"><p>No patients in this risk tier.</p></div>';
+    return;
+  }
+
+  function sortArrow(key){
+    if(sortKey !== key) return '';
+    return '<span class="sort-arrow"> '+(sortDir===1 ? '↑' : '↓')+'</span>';
+  }
+
+  var head = '<thead><tr>'+
+    '<th data-sort="label" tabindex="0" role="button">Patient'+sortArrow('label')+'</th>'+
+    '<th data-sort="age" tabindex="0" role="button">Age'+sortArrow('age')+'</th>'+
+    '<th data-sort="simd" tabindex="0" role="button">SIMD'+sortArrow('simd')+'</th>'+
+    '<th data-sort="delay" tabindex="0" role="button">Delay'+sortArrow('delay')+'</th>'+
+    '<th data-sort="dnas" tabindex="0" role="button">Prior DNAs'+sortArrow('dnas')+'</th>'+
+    '<th data-sort="risk" tabindex="0" role="button">Risk'+sortArrow('risk')+'</th>'+
+    '<th></th>'+
+    '<th></th>'+
+    '</tr></thead>';
+
+  var body = '<tbody>' + filtered.map(function(r){
+    var p = r.p;
+    var delayOpt = findOpt(FACTOR_DEFS,'delay',p.delay);
+    return '<tr data-id="'+p.id+'" tabindex="0" role="button" aria-label="View details for '+escapeHtml(p.label||'Unnamed patient')+'" class="'+(p.id===selectedId?'selected':'')+'">'+
+      '<td>'+escapeHtml(p.label||'Unnamed patient')+'</td>'+
+      '<td>'+ageLabel(p.age)+'</td>'+
+      '<td>'+p.simd+'</td>'+
+      '<td>'+(delayOpt?delayOpt.l:p.delay)+'</td>'+
+      '<td>'+(p.dnas||0)+'</td>'+
+      '<td><span class="flag '+r.tier+'"><span class="dot"></span>'+r.idx.toFixed(1)+'\u00d7 &middot; '+TIER_LABEL[r.tier]+'</span></td>'+
+      '<td class="row-actions"><button class="edit-btn small" data-edit="'+p.id+'" aria-label="Edit patient">Edit</button></td>'+
+      '<td class="row-actions"><button class="remove-btn small" data-remove="'+p.id+'" aria-label="Remove patient">Remove</button></td>'+
+      '</tr>';
+  }).join('') + '</tbody>';
+
+  elTableWrap.innerHTML = '<table>'+head+body+'</table>';
+
+  Array.prototype.forEach.call(elTableWrap.querySelectorAll('thead th[data-sort]'), function(th){
+    function activate(){
+      var key = th.getAttribute('data-sort');
+      if(sortKey===key) sortDir = -sortDir; else { sortKey = key; sortDir = key==='risk' ? -1 : 1; }
+      render();
+    }
+    th.addEventListener('click', activate);
+    th.addEventListener('keydown', function(e){
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); activate(); }
+    });
+  });
+  Array.prototype.forEach.call(elTableWrap.querySelectorAll('tbody tr'), function(tr){
+    function activate(){ selectedId = tr.getAttribute('data-id'); render(); }
+    tr.addEventListener('click', function(e){
+      if(e.target.closest('[data-remove]') || e.target.closest('[data-edit]')) return;
+      activate();
+    });
+    tr.addEventListener('keydown', function(e){
+      if(e.target !== tr) return;
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); activate(); }
+    });
+  });
+  Array.prototype.forEach.call(elTableWrap.querySelectorAll('[data-remove]'), function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var id = btn.getAttribute('data-remove');
+      patients = patients.filter(function(p){return p.id!==id;});
+      if(selectedId===id) selectedId = null;
+      savePatients();
+      render();
+    });
+  });
+  Array.prototype.forEach.call(elTableWrap.querySelectorAll('[data-edit]'), function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var id = btn.getAttribute('data-edit');
+      var p = patients.filter(function(x){return x.id===id;})[0];
+      if(p) openModal(p);
+    });
+  });
+}
+
+function buildDetailHtml(row){
+  var p = row.p;
+
+  var factorRows = FACTOR_DEFS.map(function(f){
+    var o = findOpt(FACTOR_DEFS, f.key, p[f.key]);
+    return '<li><span class="fk">'+f.label+'</span><span class="fv">'+(o?o.l:'\u2014')+' &middot; RRR '+(o?o.rrr.toFixed(2):'\u2014')+'</span></li>';
+  }).join('');
+
+  var actions = ACTIONS[row.tier].map(function(a){ return '<li>'+a+'</li>'; }).join('');
+
+  return '<p class="d-name">'+escapeHtml(p.label||'Unnamed patient')+'</p>'+
+    '<p class="d-sub">'+ageLabel(p.age)+' &middot; SIMD '+p.simd+' &middot; '+(p.dnas||0)+' previous missed appointment'+((p.dnas||0)===1?'':'s')+'</p>'+
+    buildGauge(row.idx, row.tier)+
+    '<div class="d-index"><span class="num">'+row.idx.toFixed(1)+'\u00d7</span><span class="label">relative risk of non-attendance vs. reference profile</span></div>'+
+    '<p class="d-tierline"><span class="flag '+row.tier+'"><span class="dot"></span>'+TIER_LABEL[row.tier]+' risk</span></p>'+
+    '<div class="actions-highlight"><p class="section-label">Suggested actions</p>'+
+    '<div class="actions-box"><ul>'+actions+'</ul></div></div>'+
+    '<p class="section-label">Risk factor breakdown</p>'+
+    '<ul class="factor-list">'+factorRows+'</ul>';
+}
+
+function renderDetail(rows){
+  if(!selectedId){
+    elDetail.innerHTML = '<div class="detail-empty">Select a patient from the list to see their risk breakdown and recommended actions.</div>';
+    btnPrint.disabled = true;
+    return;
+  }
+  var row = rows.filter(function(r){return r.p.id===selectedId;})[0];
+  if(!row){
+    elDetail.innerHTML = '<div class="detail-empty">Select a patient from the list to see their risk breakdown and recommended actions.</div>';
+    btnPrint.disabled = true;
+    return;
+  }
+  elDetail.innerHTML = buildDetailHtml(row);
+  btnPrint.disabled = false;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function buildBarRows(items){
+  var max = Math.max.apply(null, items.map(function(i){ return i.value; }).concat([1]));
+  return '<div class="bar-chart">' + items.map(function(i){
+    var pct = max ? Math.round((i.value / max) * 100) : 0;
+    return '<div class="bar-row">'+
+      '<div class="bar-label">'+escapeHtml(i.label)+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%; background:'+i.color+';"></div></div>'+
+      '<div class="bar-value">'+i.value+'</div>'+
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function renderClinicSummary(){
+  var rows = computed();
+  var total = patients.length;
+
+  var avgIdx = total ? rows.reduce(function(s,r){ return s + r.idx; }, 0) / total : 0;
+  var highShare = total ? Math.round(100 * rows.filter(function(r){ return r.tier==='high' || r.tier==='vhigh'; }).length / total) : 0;
+
+  document.getElementById('cs-stats').innerHTML =
+    '<div class="stat"><div class="n">'+total+'</div><div class="l">Total patients</div></div>'+
+    '<div class="stat"><div class="n">'+(total ? avgIdx.toFixed(1)+'×' : '—')+'</div><div class="l">Average risk index</div></div>'+
+    '<div class="stat"><div class="n">'+(total ? highShare+'%' : '—')+'</div><div class="l">High or very high risk</div></div>';
+
+  var tierCounts = {low:0, mod:0, high:0, vhigh:0};
+  rows.forEach(function(r){ tierCounts[r.tier]++; });
+  var tierItems = GAUGE_TIERS.map(function(t){
+    return {label:TIER_LABEL[t], value:tierCounts[t], color:'var(--'+t+')'};
+  });
+  document.getElementById('cs-tier-chart').innerHTML = total ? buildBarRows(tierItems) : '<p class="empty-note">No patients loaded.</p>';
+
+  var simdCounts = {};
+  SIMD.forEach(function(o){ simdCounts[o.v] = 0; });
+  rows.forEach(function(r){ if(simdCounts[r.p.simd] !== undefined) simdCounts[r.p.simd]++; });
+  var simdItems = SIMD.map(function(o){ return {label:'SIMD '+o.v, value:simdCounts[o.v], color:'var(--accent)'}; });
+  document.getElementById('cs-simd-chart').innerHTML = total ? buildBarRows(simdItems) : '<p class="empty-note">No patients loaded.</p>';
+
+  var rurCounts = {};
+  RUR.forEach(function(o){ rurCounts[o.v] = 0; });
+  rows.forEach(function(r){ if(rurCounts[r.p.rurality] !== undefined) rurCounts[r.p.rurality]++; });
+  var rurItems = RUR.map(function(o){ return {label:o.l, value:rurCounts[o.v], color:'var(--accent)'}; });
+  document.getElementById('cs-rurality-chart').innerHTML = total ? buildBarRows(rurItems) : '<p class="empty-note">No patients loaded.</p>';
+}
+
+function render(){
+  var rows = computed();
+  renderSummary(rows);
+  renderFilters();
+  renderTable(rows);
+  renderDetail(rows);
+  renderClinicSummary();
+}
+
+// ---------- PDF export (print) ----------
+function buildPrintSheet(row){
+  var dateStr = new Date().toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
+  elPrintSheet.innerHTML =
+    '<div class="ps-head"><div class="ps-title">Screening attendance risk summary</div>'+
+    '<div class="ps-meta">Generated '+dateStr+'</div></div>'+
+    buildDetailHtml(row)+
+    '<p class="ps-footer">Risk index derived from relative risk ratios published in Ellis et al., <em>Lancet Public Health</em> 2017. '+
+    'Weights are not yet calibrated to local screening attendance data &mdash; treat tiers as a provisional starting point and recalibrate once local outcomes accrue.</p>';
+}
+
+btnPrint.addEventListener('click', function(){
+  if(!selectedId) return;
+  var row = computed().filter(function(r){ return r.p.id === selectedId; })[0];
+  if(!row) return;
+  buildPrintSheet(row);
+  window.print();
+});
+
+// ---------- add patient modal ----------
+var overlay = document.getElementById('overlay');
+var modalBody = document.getElementById('modal-body');
+var formErr = document.getElementById('form-err');
+var modalTitle = document.getElementById('modal-title');
+var btnSave = document.getElementById('btn-save');
+var editingId = null;
+
+function buildModal(existing){
+  var html = '<div class="field full"><label for="f-label">Patient label or ID</label>'+
+    '<input id="f-label" type="text" placeholder="e.g. patient initials or record ID"></div>';
+  FACTOR_DEFS.forEach(function(f){
+    html += '<div class="field"><label for="f-'+f.key+'">'+f.label+'</label><select id="f-'+f.key+'">'+
+      f.options.map(function(o){ return '<option value="'+o.v+'">'+o.l+'</option>'; }).join('') +
+      '</select></div>';
+  });
+  html += '<div class="field"><label for="f-dnas">Previous missed appointments (context only, not in score)</label>'+
+    '<input id="f-dnas" type="number" min="0" step="1" value="0"></div>';
+  modalBody.innerHTML = html;
+
+  if(existing){
+    document.getElementById('f-label').value = existing.label || '';
+    document.getElementById('f-dnas').value = existing.dnas || 0;
+    FACTOR_DEFS.forEach(function(f){
+      var el = document.getElementById('f-'+f.key);
+      if(el) el.value = existing[f.key];
+    });
+  }
+}
+
+function openModal(existing){
+  editingId = existing ? existing.id : null;
+  buildModal(existing);
+  formErr.textContent = '';
+  modalTitle.textContent = existing ? 'Edit patient' : 'Add patient';
+  btnSave.textContent = existing ? 'Save changes' : 'Add to list';
+  overlay.style.display = 'flex';
+}
+function closeModal(){ overlay.style.display = 'none'; editingId = null; }
+
+document.getElementById('btn-add').addEventListener('click', function(){ openModal(null); });
+document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+overlay.addEventListener('click', function(e){ if(e.target === overlay) closeModal(); });
+
+btnSave.addEventListener('click', function(){
+  var label = document.getElementById('f-label').value.trim();
+  var dnasVal = document.getElementById('f-dnas').value;
+  if(dnasVal !== '' && (isNaN(dnasVal) || Number(dnasVal) < 0)){
+    formErr.textContent = 'Enter 0 or a positive number of previous missed appointments.';
+    return;
+  }
+  var values = { label: label || null, dnas: dnasVal === '' ? 0 : Number(dnasVal) };
+  FACTOR_DEFS.forEach(function(f){ values[f.key] = document.getElementById('f-'+f.key).value; });
+
+  if(editingId){
+    var existing = patients.filter(function(p){return p.id===editingId;})[0];
+    if(existing){ Object.assign(existing, values); selectedId = existing.id; }
+  } else {
+    var p = Object.assign({id: uid()}, values);
+    patients.push(p);
+    selectedId = p.id;
+  }
+  savePatients();
+  closeModal();
+  render();
+});
+
+document.getElementById('btn-demo').addEventListener('click', function(){
+  patients = patients.concat(demoPatients());
+  savePatients();
+  render();
+});
+document.getElementById('btn-clear').addEventListener('click', function(){
+  patients = [];
+  selectedId = null;
+  savePatients();
+  render();
+});
+
+// ---------- Excel / CSV import ----------
+var SHEETJS_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+var sheetJsPromise = null;
+function loadSheetJs(){
+  if(window.XLSX) return Promise.resolve();
+  if(sheetJsPromise) return sheetJsPromise;
+  sheetJsPromise = new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = SHEETJS_URL;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ sheetJsPromise = null; reject(new Error('Could not load the Excel parser (no internet connection?). Try saving the file as CSV and importing that instead.')); };
+    document.head.appendChild(s);
+  });
+  return sheetJsPromise;
+}
+
+var IMPORT_SYNONYMS = {
+  label: ['label','name','patientname','patient','id','mrn','patientid','recordid'],
+  age: ['age','ageyrs','ageyears'],
+  simd: ['simd','simddecile','deprivation','deprivationdecile'],
+  delay: ['delay','delaydays','daysdelay','bookingdelay','waitdays','appointmentdelay'],
+  rurality: ['rurality','ruralurban','urbanrural','uraccode','lga','localgovernmentarea','council','practicelga'],
+  psimd: ['psimd','practicesimd','practicedeprivation','meanpracticedeprivation','practicemeandeprivation'],
+  distance: ['distance','distancekm','distancetopractice','km'],
+  dnas: ['dnas','priordnas','missed','noshows','previousmissed']
+};
+var IMPORT_FIELDS = ['label','age','simd','delay','rurality','psimd','distance','dnas'];
+
+function normHeader(h){ return String(h||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+
+function detectColumn(headers, field){
+  var syns = IMPORT_SYNONYMS[field];
+  var normed = headers.map(normHeader);
+  var i, j;
+  for(i=0;i<syns.length;i++){
+    var idx = normed.indexOf(syns[i]);
+    if(idx>-1) return headers[idx];
+  }
+  for(j=0;j<headers.length;j++){
+    for(i=0;i<syns.length;i++){
+      if(normed[j] && normed[j].indexOf(syns[i])>-1) return headers[j];
+    }
+  }
+  return null;
+}
+
+function bucketAge(n){
+  if(n<16) return '0-15';
+  if(n<31) return '16-30';
+  if(n<46) return '31-45';
+  if(n<61) return '46-60';
+  if(n<76) return '61-75';
+  if(n<91) return '76-90';
+  return '90+';
+}
+function bucketDelay(n){
+  if(n<1) return '<1';
+  if(n<=2) return '1-2';
+  if(n<=3) return '2-3';
+  if(n<=4) return '3-4';
+  if(n<=5) return '4-5';
+  if(n<=6) return '5-6';
+  if(n<=7) return '6-7';
+  if(n<=14) return '7-14';
+  return '>14';
+}
+function bucketDistance(n){ return n<=2 ? '0-2' : '>2'; }
+function bucketPsimd(n){
+  if(n<3) return '2-3';
+  if(n<4) return '3-4';
+  if(n<5) return '4-5';
+  if(n<6) return '5-6';
+  if(n<7) return '6-7';
+  if(n<8) return '7-8';
+  return '8-9';
+}
+
+function resolveRurality(raw){
+  var norm = String(raw).toLowerCase().replace(/[^a-z]/g, '');
+  if(!norm) return null;
+  var i;
+  for(i=0;i<RUR.length;i++){ if(RUR[i].v.replace(/-/g,'')===norm) return RUR[i].v; }
+  for(i=0;i<RUR.length;i++){
+    var labelNorm = RUR[i].l.toLowerCase().replace(/[^a-z]/g, '');
+    if(labelNorm===norm || labelNorm.indexOf(norm)>-1 || norm.indexOf(labelNorm)>-1) return RUR[i].v;
+  }
+  return null;
+}
+
+function resolveField(key, raw){
+  if(raw===undefined || raw===null || String(raw).trim()==='') return null;
+  var s = String(raw).trim();
+  var opt = findOpt(FACTOR_DEFS, key, s);
+  if(opt) return opt.v;
+  if(key==='rurality') return resolveRurality(s);
+  var n = parseFloat(s);
+  if(isNaN(n)) return null;
+  if(key==='age') return bucketAge(n);
+  if(key==='delay') return bucketDelay(n);
+  if(key==='distance') return bucketDistance(n);
+  if(key==='psimd') return bucketPsimd(n);
+  if(key==='simd'){ n = Math.round(n); return (n>=1 && n<=10) ? String(n) : null; }
+  return null;
+}
+
+function parseCSV(text){
+  var rows = [], row = [], field = '', inQuotes = false;
+  for(var i=0;i<text.length;i++){
+    var c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if(c === '"'){ inQuotes = true; }
+    else if(c === ','){ row.push(field); field = ''; }
+    else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+    else if(c === '\r'){ /* skip */ }
+    else field += c;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return r.length>1 || (r.length===1 && r[0]!==''); });
+}
+
+function rowsToObjects(rows){
+  if(!rows.length) return {headers:[], data:[]};
+  var headers = rows[0].map(function(h){ return String(h).trim(); });
+  var data = rows.slice(1).map(function(r){
+    var obj = {};
+    headers.forEach(function(h,i){ obj[h] = r[i]; });
+    return obj;
+  });
+  return {headers:headers, data:data};
+}
+
+function parseXlsx(arrayBuffer){
+  var wb = XLSX.read(arrayBuffer, {type:'array'});
+  var sheet = wb.Sheets[wb.SheetNames[0]];
+  var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:'', raw:true});
+  return rowsToObjects(rows);
+}
+
+var fileImportInput = document.getElementById('file-import');
+var importOverlay = document.getElementById('import-overlay');
+var importBody = document.getElementById('import-body');
+var importErr = document.getElementById('import-err');
+var btnImportConfirm = document.getElementById('btn-import-confirm');
+var pendingImport = [];
+
+document.getElementById('btn-import').addEventListener('click', function(){ fileImportInput.click(); });
+
+fileImportInput.addEventListener('change', function(){
+  var file = fileImportInput.files[0];
+  fileImportInput.value = '';
+  if(!file) return;
+  var isCsv = /\.csv$/i.test(file.name);
+  var reader = new FileReader();
+  reader.onerror = function(){ showToast('Could not read that file.', true); };
+  if(isCsv){
+    reader.onload = function(){ processImport(rowsToObjects(parseCSV(String(reader.result)))); };
+    reader.readAsText(file);
+  } else {
+    reader.onload = function(){
+      loadSheetJs().then(function(){
+        processImport(parseXlsx(reader.result));
+      }).catch(function(err){ showToast(err.message, true); });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+});
+
+function processImport(parsed){
+  var headers = parsed.headers, data = parsed.data;
+  if(!headers.length || !data.length){
+    showToast('No rows found in that file.', true);
+    return;
+  }
+  var colMap = {};
+  IMPORT_FIELDS.forEach(function(f){ colMap[f] = detectColumn(headers, f); });
+
+  pendingImport = data.map(function(row, idx){
+    var errors = [];
+    var p = {id: uid()};
+    p.label = colMap.label ? String(row[colMap.label] || '').trim() : '';
+    if(!p.label) p.label = 'Row ' + (idx + 2);
+    ['age','simd','delay','rurality','psimd','distance'].forEach(function(f){
+      var raw = colMap[f] ? row[colMap[f]] : undefined;
+      var val = resolveField(f, raw);
+      if(!val) errors.push(f);
+      p[f] = val;
+    });
+    var dnasNum = parseFloat(colMap.dnas ? row[colMap.dnas] : undefined);
+    p.dnas = isNaN(dnasNum) ? 0 : Math.max(0, Math.round(dnasNum));
+    return {row:p, errors:errors, valid: errors.length===0};
+  });
+
+  renderImportPreview(colMap, headers);
+}
+
+function renderImportPreview(colMap, headers){
+  var validCount = pendingImport.filter(function(r){ return r.valid; }).length;
+
+  var mapLines = IMPORT_FIELDS.map(function(f){
+    var found = colMap[f];
+    return '<li><span class="fk">'+f+'</span><span class="fv'+(found?'':' missing')+'">'+(found ? escapeHtml(found) : 'not found in file')+'</span></li>';
+  }).join('');
+
+  var shown = pendingImport.slice(0, 50);
+  var rowsHtml = shown.map(function(r){
+    var p = r.row;
+    return '<tr>'+
+      '<td>'+escapeHtml(p.label)+'</td>'+
+      '<td>'+(p.age ? ageLabel(p.age) : '—')+'</td>'+
+      '<td>'+(p.simd || '—')+'</td>'+
+      '<td>'+(p.delay || '—')+'</td>'+
+      '<td>'+(p.rurality ? rurLabel(p.rurality) : '—')+'</td>'+
+      '<td>'+(p.psimd || '—')+'</td>'+
+      '<td>'+(p.distance || '—')+'</td>'+
+      '<td>'+(r.valid ? '<span class="import-status ok">OK</span>' : '<span class="import-status bad">Missing '+r.errors.join(', ')+'</span>')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  importBody.innerHTML =
+    '<p class="section-label">Detected columns</p>'+
+    '<ul class="import-map">'+mapLines+'</ul>'+
+    '<p class="import-summary">'+validCount+' of '+pendingImport.length+' rows parsed successfully'+
+      (pendingImport.length>50 ? ' (showing the first 50 below)' : '')+
+      '. Rows with missing values are skipped on import — fix them in the source file and re-upload if needed.</p>'+
+    '<div class="import-table-wrap"><table class="import-table"><thead><tr>'+
+      '<th>Name</th><th>Age</th><th>SIMD</th><th>Delay</th><th>LGA</th><th>Practice SIMD</th><th>Distance</th><th>Status</th>'+
+      '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>';
+
+  importErr.textContent = '';
+  btnImportConfirm.textContent = 'Import ' + validCount + ' patient' + (validCount===1 ? '' : 's');
+  btnImportConfirm.disabled = validCount === 0;
+  importOverlay.style.display = 'flex';
+}
+
+function closeImportModal(){ importOverlay.style.display = 'none'; pendingImport = []; }
+document.getElementById('btn-close-import').addEventListener('click', closeImportModal);
+document.getElementById('btn-import-cancel').addEventListener('click', closeImportModal);
+importOverlay.addEventListener('click', function(e){ if(e.target === importOverlay) closeImportModal(); });
+
+btnImportConfirm.addEventListener('click', function(){
+  var valid = pendingImport.filter(function(r){ return r.valid; }).map(function(r){ return r.row; });
+  if(!valid.length) return;
+  patients = patients.concat(valid);
+  savePatients();
+  closeImportModal();
+  render();
+});
+
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  if(overlay.style.display === 'flex') closeModal();
+  if(importOverlay.style.display === 'flex') closeImportModal();
+});
+
+// ---------- init ----------
+loadPatients(function(){ render(); });
+
+})();
+</script>
+</body>
+</html>
